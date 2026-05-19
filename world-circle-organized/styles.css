@@ -1,7 +1,0 @@
-body { margin: 0; background-color: #020617; }
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #475569; }
-select optgroup { color: #94A3B8; font-style: normal; font-weight: 800; background-color: #0F172A; }
-select option { color: #FFFFFF; font-weight: 500; padding: 4px; }
