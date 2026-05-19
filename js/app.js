@@ -33,17 +33,23 @@ const CharacterOptions = () => (
 
 
         function App() {
-          const canvasRef = useRef(null), engineRef = useRef(null), isPausedRef = useRef(false), speedRef = useRef(1);
+          const canvasRef = useRef(null), engineRef = useRef(null), isPausedRef = useRef(false), speedRef = useRef(1), soundRef = useRef(createSoundManager());
           const [gameState, setGameState] = useState('menu'), [gameMode, setGameMode] = useState('ffa'), [scene, setScene] = useState('default'), [testType, setTestType] = useState('dummy'), [ffaCount, setFfaCount] = useState(2);
           const [ffaIds, setFfaIds] = useState(['kongmie', 'topiharin', 'grimm', 'eli', 'fasimir']), [ffaLocks, setFfaLocks] = useState([false, false, false, false, false]);
           const [p1Ids, setP1Ids] = useState(['kongmie', 'topiharin', 'grimm', 'eli']), [p2Ids, setP2Ids] = useState(['fasimir', 'ecmo', 'creator', 'lisi']);
           const [p1Locks, setP1Locks] = useState([false, false, false, false]), [p2Locks, setP2Locks] = useState([false, false, false, false]);
-          const [isPaused, setIsPaused] = useState(false), [gameSpeed, setGameSpeed] = useState(1), [uiStats, setUiStats] = useState({p1:[],p2:[]}), [winner, setWinner] = useState(null);
+          const [isPaused, setIsPaused] = useState(false), [gameSpeed, setGameSpeed] = useState(1), [uiStats, setUiStats] = useState({p1:[],p2:[]}), [winner, setWinner] = useState(null), [soundEnabled, setSoundEnabled] = useState(true);
 
 
+          const wakeAudio = () => soundRef.current.unlock();
           const togglePause = () => { isPausedRef.current=!isPausedRef.current; setIsPaused(isPausedRef.current); };
           const toggleSpeed = () => { const ns=gameSpeed===1?2:1; setGameSpeed(ns); speedRef.current=ns; };
           const goToMenu = () => { setGameState('menu'); setIsPaused(false); isPausedRef.current=false; setGameSpeed(1); speedRef.current=1; setWinner(null); };
+          const toggleSound = () => { wakeAudio(); setSoundEnabled(prev => !prev); };
+
+          useEffect(() => {
+              soundRef.current.setEnabled(soundEnabled);
+          }, [soundEnabled]);
 
 
           const triggerIntervention = type => {
@@ -57,12 +63,14 @@ const CharacterOptions = () => (
 
 
           const startGame = () => {
+            wakeAudio();
             const engine = {
               arenaSize: (gameMode==='3v3'||gameMode==='1v4'||gameMode==='regen')?900:600, scene: gameMode==='3v3'?scene:'default', balls:[], projectiles:[], waves:[], particles:[], obstacles:[], time:0, timeLimit:null, healthPackTimer:0, globalDamageMultiplier:1, globalLostHp:0,
               teamDeathCounts: {p1:0, p2:0},
               teamFleshMaterials: {},
+              sound: (name, options) => soundRef.current.play(name, options),
               applyRandomPodoasgEffect: (tg, src, nx=0, ny=0, mul=1) => { const ef=['stun','slow','rooted','burn','knockback','warning','silenced','vulnerable','damage'][floor(random()*9)]; if(ef==='stun'){engine.applyStatus(tg.uniqueId,'stun',{duration:3*mul}); sTxt(engine,tg.x,tg.y,'💫 暈眩','#FCD34D');} else if(ef==='slow'){engine.applyStatus(tg.uniqueId,'slow',{duration:3*mul}); sTxt(engine,tg.x,tg.y,'🐌 緩速','#3B82F6');} else if(ef==='rooted'){engine.applyStatus(tg.uniqueId,'rooted',{duration:3*mul}); sTxt(engine,tg.x,tg.y,'⛓️ 禁錮','#4ADE80');} else if(ef==='burn'){engine.applyStatus(tg.uniqueId,'burn',{duration:3*mul,dps:5*mul,sourceId:src}); sTxt(engine,tg.x,tg.y,'🔥 燃燒','#EF4444');} else if(ef==='knockback'){engine.applyStatus(tg.uniqueId,'knockback',{duration:3,sourceId:src}); tg.vx+=nx*800*mul; tg.vy+=ny*800*mul; sTxt(engine,tg.x,tg.y,'💨 擊退','#94A3B8');} else if(ef==='warning'){engine.applyStatus(tg.uniqueId,'warning',{duration:3*mul}); sTxt(engine,tg.x,tg.y,'⚠️ 警告','#FF00FF');} else if(ef==='silenced'){engine.applyStatus(tg.uniqueId,'silenced',{duration:3*mul}); sTxt(engine,tg.x,tg.y,'🔇 沉默','#9333EA');} else if(ef==='vulnerable'){engine.applyStatus(tg.uniqueId,'vulnerable',{duration:3*mul}); sTxt(engine,tg.x,tg.y,'💔 易傷','#EF4444');} else if(ef==='damage'){engine.applyDamage(tg,10*mul,src,'magic'); sTxt(engine,tg.x,tg.y,'💥 傷害','#EF4444');} },
-              spawnProjectile: p => engine.projectiles.push(p), spawnWave: w => { w.currentRadius=w.startRadius||0; w.hitSet=new Set(); w.lingerTimer=0; engine.waves.push(w); }, spawnParticle: p => engine.particles.push({...p,lifespan:p.maxLifespan||1.5,maxLifespan:p.maxLifespan||1.5}), spawnObstacle: o => engine.obstacles.push(o),
+              spawnProjectile: p => { soundRef.current.playProjectile(p); engine.projectiles.push(p); }, spawnWave: w => { w.currentRadius=w.startRadius||0; w.hitSet=new Set(); w.lingerTimer=0; soundRef.current.playWave(w); engine.waves.push(w); }, spawnParticle: p => engine.particles.push({...p,lifespan:p.maxLifespan||1.5,maxLifespan:p.maxLifespan||1.5}), spawnObstacle: o => { soundRef.current.playObstacle(o); engine.obstacles.push(o); },
               applyHeal: (t, a, src, allowOverheal = false) => {
                  if(t.hp<=0||t.isBlank)return;
                  let canOverheal = false;
@@ -77,12 +85,13 @@ const CharacterOptions = () => (
                  t.hp+=h; t._hA=(t._hA||0)+h;
                  if(t._hA>=1){const s=floor(t._hA); engine.spawnParticle({type:'floating_number',x:t.x+(random()-.5)*20,y:t.y-t.radius,text:`+${s}`,color:'#10B981',vx:(random()-.5)*40,vy:-80-random()*40,maxLifespan:0.8}); t._hA-=s;}
               },
-              applyDamage: (t, a, src, dT='normal') => { if(t.hp<=0)return 0; const sIdx=t.statuses.findIndex(s=>s.type==='shield'); if(sIdx!==-1&&!['burn','dot'].includes(dT)){t.statuses.splice(sIdx,1);sTxt(engine,t.x,t.y+5,'🛡️ 免疫','#CBD5E1');return 0;} let fd=a*engine.globalDamageMultiplier; if(t.statuses){if(t.statuses.some(s=>s.type==='vulnerable'))fd*=1.2;if(t.statuses.some(s=>s.type==='shield_dr'))fd*=0.8;} if(t.onTakeDamage)fd=max(0,t.onTakeDamage(t,fd,src,engine,dT)); const ls=min(t.hp,fd); engine.globalLostHp=(engine.globalLostHp||0)+ls; t._dA=(t._dA||0)+fd; if(t._dA>=1){const s=floor(t._dA);engine.spawnParticle({type:'floating_number',x:t.x+(random()-.5)*20,y:t.y-t.radius,text:`-${s}`,color:'#EF4444',vx:(random()-.5)*40,vy:-80-random()*40,maxLifespan:0.8});t._dA-=s;} if(['collision','wall_collision','projectile'].includes(dT)&&fd>0)engine.applyStatus(t.uniqueId,'hitstop',{duration:0.08}); if(t.hp-fd<=0&&(t.id==='kongmie'||t.copied==='kongmie')&&t.act===1){t.hp=t.maxHp;t.act=2;t.path='A';t.waveTimer=0;sTxt(engine,t.x,t.y-40,'第二幕·見那狂風驟雨','#3B82F6');return 0;} if(t.hp-fd<=0&&(t.id==='melis'||t.copied==='melis')&&!t.hasRevived){t.hp=0.1;engine.applyHeal(t,max(1,(t.damageDealt||0)/3));t.hasRevived=true;sTxt(engine,t.x,t.y-30,'🔥浴火重生','#FF6B35');engine.spawnWave({x:t.x,y:t.y,startRadius:t.radius,maxRadius:450,speed:700,color:'rgba(255,69,0,0.6)',ownerId:t.uniqueId,lingerDuration:0.1,onHit:tg=>{if(engine.isEnemy(tg.uniqueId,t.uniqueId)){const bs=tg.statuses?.find(s=>s.type==='burn');if(bs&&bs.timer<bs.duration)engine.applyDamage(tg,bs.dps*(bs.duration-bs.timer),t.uniqueId,'magic'); engine.applyStatus(tg.uniqueId,'burn',{duration:3,dps:t.burnDamage,sourceId:t.uniqueId});t.burnDamage+=0.4*(t.noGrowth?0:1);t.scalingValue=`燃燒秒傷: ${t.burnDamage.toFixed(1)}`;}}});return 0;}
+              applyDamage: (t, a, src, dT='normal') => { if(t.hp<=0)return 0; const sIdx=t.statuses.findIndex(s=>s.type==='shield'); if(sIdx!==-1&&!['burn','dot'].includes(dT)){t.statuses.splice(sIdx,1);sTxt(engine,t.x,t.y+5,'🛡️ 免疫','#CBD5E1');return 0;} let fd=a*engine.globalDamageMultiplier; if(t.statuses){if(t.statuses.some(s=>s.type==='vulnerable'))fd*=1.2;if(t.statuses.some(s=>s.type==='shield_dr'))fd*=0.8;} if(t.onTakeDamage)fd=max(0,t.onTakeDamage(t,fd,src,engine,dT)); const ls=min(t.hp,fd); engine.globalLostHp=(engine.globalLostHp||0)+ls; t._dA=(t._dA||0)+fd; if(t._dA>=1){const s=floor(t._dA);engine.spawnParticle({type:'floating_number',x:t.x+(random()-.5)*20,y:t.y-t.radius,text:`-${s}`,color:'#EF4444',vx:(random()-.5)*40,vy:-80-random()*40,maxLifespan:0.8});t._dA-=s;} if(fd>0){ if(dT==='collision')engine.sound('collision',{intensity:Math.min(1.8, fd/6)}); else if(dT==='wall_collision')engine.sound('wallHit',{intensity:Math.min(2, fd/8)}); else if(dT==='projectile')engine.sound('projectileHit',{intensity:Math.min(1.6, fd/5)}); } if(['collision','wall_collision','projectile'].includes(dT)&&fd>0)engine.applyStatus(t.uniqueId,'hitstop',{duration:0.08}); if(t.hp-fd<=0&&(t.id==='kongmie'||t.copied==='kongmie')&&t.act===1){t.hp=t.maxHp;t.act=2;t.path='A';t.waveTimer=0;sTxt(engine,t.x,t.y-40,'第二幕·見那狂風驟雨','#3B82F6');return 0;} if(t.hp-fd<=0&&(t.id==='melis'||t.copied==='melis')&&!t.hasRevived){t.hp=0.1;engine.applyHeal(t,max(1,(t.damageDealt||0)/3));t.hasRevived=true;engine.sound('rebirth');sTxt(engine,t.x,t.y-30,'🔥浴火重生','#FF6B35');engine.spawnWave({x:t.x,y:t.y,startRadius:t.radius,maxRadius:450,speed:700,color:'rgba(255,69,0,0.6)',ownerId:t.uniqueId,lingerDuration:0.1,onHit:tg=>{if(engine.isEnemy(tg.uniqueId,t.uniqueId)){const bs=tg.statuses?.find(s=>s.type==='burn');if(bs&&bs.timer<bs.duration)engine.applyDamage(tg,bs.dps*(bs.duration-bs.timer),t.uniqueId,'magic'); engine.applyStatus(tg.uniqueId,'burn',{duration:3,dps:t.burnDamage,sourceId:t.uniqueId});t.burnDamage+=0.4*(t.noGrowth?0:1);t.scalingValue=`燃燒秒傷: ${t.burnDamage.toFixed(1)}`;}}});return 0;}
               if(t.hp-fd<=0&&engine.scene==='court'&&engine.judgeId===t.uniqueId){engine.judgeId=engine.plaintiffTeam=null;engine.spawnObstacle({type:'gavel',x:t.x,y:t.y,radius:25,color:'#A8A29E',lifespan:99999});sTxt(engine,t.x,t.y-40,'⚖️ 法槌掉落！','#D6D3D1');}
 
 
               if(t.hp-fd<=0) {
-                 const hasPrism = ['abraham','isaac','eli','miller','topiharin','kongmie','hao'].some(id => engine.balls.some(x=>x.team===t.team&&x.hp>0&&(x.id===id||x.copied===id)));
+                 const hasEcmoAlive = engine.balls.some(x=>x.team===t.team&&x.hp>0&&(x.id==='ecmo'||x.copied==='ecmo'));
+                 const hasPrism = hasEcmoAlive && ['abraham','isaac','eli','miller','topiharin','kongmie','hao'].some(id => engine.balls.some(x=>x.team===t.team&&x.hp>0&&(x.id===id||x.copied===id)));
                  if(hasPrism && !t.hasUsedPrismRevive) {
                      t.hasUsedPrismRevive = true;
                      t.hp = t.maxHp * 0.5;
@@ -106,7 +115,7 @@ const CharacterOptions = () => (
 
 
               t.hp-=fd; if(src&&fd>0){const sb=engine.balls.find(b=>b.uniqueId===src);let as=sb;if(sb&&sb.summonerId)as=engine.balls.find(b=>b.uniqueId===sb.summonerId)||sb;if(as){as.damageDealt=(as.damageDealt||0)+fd; if(as.onDealDamage)as.onDealDamage(as, fd, t, engine);}} return fd; },
-              applyStatus: (tid, type, d) => { const t=engine.balls.find(b=>b.uniqueId===tid); if(t){if(!t.statuses)t.statuses=[]; const e=t.statuses.find(s=>s.type===type); if(e){e.duration=d.duration;e.timer=0;if(d.dps)e.dps=d.dps;if(d.dx)e.dx=d.dx;if(d.dy)e.dy=d.dy;if(d.sourceId)e.sourceId=d.sourceId;}else t.statuses.push({...d,type,timer:0});} },
+              applyStatus: (tid, type, d) => { const t=engine.balls.find(b=>b.uniqueId===tid); if(t){if(!t.statuses)t.statuses=[]; const e=t.statuses.find(s=>s.type===type); if(e){e.duration=d.duration;e.timer=0;if(d.dps)e.dps=d.dps;if(d.dx)e.dx=d.dx;if(d.dy)e.dy=d.dy;if(d.sourceId)e.sourceId=d.sourceId;}else { soundRef.current.playStatus(type); t.statuses.push({...d,type,timer:0}); }} },
               isEnemy: (i1, i2) => { const b1=engine.balls.find(b=>b.uniqueId===i1), b2=engine.balls.find(b=>b.uniqueId===i2); return !b1||!b2||b1.team!==b2.team; },
               getNearestEnemy: (src) => { let nr=null, md=Infinity; engine.balls.forEach(b=>{if(b.hp>0&&!b.isUntargetable&&engine.isEnemy(b.uniqueId,src.uniqueId)&&!b.isBlank){const d=distance(b.x,b.y,src.x,src.y);if(d<md){md=d;nr=b;}}}); return nr; },
               createBall: (tmp, tm, uid, isM=false, mHp=100, x, y) => { const b={...tmp,uniqueId:uid,team:tm,isMain:isM,hp:mHp,maxHp:mHp,baseMaxHp:mHp,erodedMaxHp:0,x,y,vx:(random()-.5)*BASE_SPEED,vy:(random()-.5)*BASE_SPEED,radius:BALL_RADIUS*(tmp.radiusMult||1),statuses:[],damageDealt:0}; if(b.initLogic)b.initLogic(b); ['birdTimer','bellTimer','pageTimer','skillTimer','musicTimer','wordTimer','daggerTimer','beamTimer','photoTimer','coreTimer','sacramentTimer','creatorTimer'].forEach(k=>{if(b[k]!==undefined)b[k]-=random()*1.5;}); return b; },
@@ -361,7 +370,8 @@ const CharacterOptions = () => (
                 <h1 className="text-2xl font-extrabold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 drop-shadow-sm">世界圈 · 武器球對決</h1>
                 {gameState === 'menu' && (
                     <div className="mt-3 flex flex-wrap justify-center gap-2">
-                       {[{id:'ffa',l:'單人作戰',c:'indigo'},{id:'3v3',l:'3v3 大亂鬥',c:'orange'},{id:'regen',l:'4v4 再生模式',c:'emerald'},{id:'1v4',l:'1v4 討伐戰',c:'rose'},{id:'test',l:'傷害測試',c:'amber'},{id:'intervention',l:'神之手干預',c:'purple'}].map(m => <button key={m.id} onClick={()=>setGameMode(m.id)} className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${gameMode===m.id?`bg-${m.c}-600 border-${m.c}-400 text-white shadow-[0_0_15px_currentColor]`:'border-gray-700 text-gray-400'}`}>{m.l}</button>)}
+                       {[{id:'ffa',l:'單人作戰',c:'indigo'},{id:'3v3',l:'3v3 大亂鬥',c:'orange'},{id:'regen',l:'4v4 再生模式',c:'emerald'},{id:'1v4',l:'1v4 討伐戰',c:'rose'},{id:'test',l:'傷害測試',c:'amber'},{id:'intervention',l:'神之手干預',c:'purple'}].map(m => <button key={m.id} onClick={()=>{wakeAudio(); setGameMode(m.id);}} className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${gameMode===m.id?`bg-${m.c}-600 border-${m.c}-400 text-white shadow-[0_0_15px_currentColor]`:'border-gray-700 text-gray-400'}`}>{m.l}</button>)}
+                       <button onClick={toggleSound} className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${soundEnabled?'border-cyan-400 text-cyan-300':'border-gray-700 text-gray-400'}`}>{soundEnabled?'音效開':'音效關'}</button>
                     </div>
                 )}
                 {gameState === 'menu' && gameMode === 'ffa' && <div className="mt-2.5 flex justify-center items-center gap-3 bg-gray-900/50 p-1.5 rounded-lg border border-gray-800 w-fit mx-auto"><span className="text-gray-400 text-xs font-bold">參戰人數：</span>{[2,3,4,5].map(n=><button key={n} onClick={()=>setFfaCount(n)} className={`px-3 py-1 rounded-full text-xs font-bold ${ffaCount===n?'bg-indigo-600 text-white':'text-gray-500'}`}>{Array(n).fill('1').join('v')}</button>)}</div>}
@@ -410,7 +420,8 @@ const CharacterOptions = () => (
                             )}
                             <div className="flex gap-2 w-full">
                                 <button onClick={toggleSpeed} className={`flex-1 py-2.5 rounded-xl text-sm font-bold border-2 flex items-center justify-center gap-1 ${gameSpeed===2?'bg-indigo-600/80 border-indigo-400 text-white':'bg-gray-800 border-gray-600 text-gray-300'}`}><FastForward size={16} fill="currentColor" /> {gameSpeed}x</button>
-                                <button onClick={togglePause} className={`flex-[1.5] py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 ${isPaused?'bg-emerald-600':'bg-amber-600'}`}>{isPaused?<Play size={16} fill="currentColor" />:<Pause size={16} fill="currentColor" />} {isPaused?'繼續':'暫停'}</button>
+                                <button onClick={()=>{wakeAudio(); togglePause();}} className={`flex-[1.5] py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 ${isPaused?'bg-emerald-600':'bg-amber-600'}`}>{isPaused?<Play size={16} fill="currentColor" />:<Pause size={16} fill="currentColor" />} {isPaused?'繼續':'暫停'}</button>
+                                <button onClick={toggleSound} className={`flex-1 py-2.5 rounded-xl text-sm font-bold border-2 ${soundEnabled?'bg-cyan-900/50 border-cyan-500 text-cyan-200':'bg-gray-800 border-gray-600 text-gray-300'}`}>{soundEnabled?'音效開':'音效關'}</button>
                                 <button onClick={goToMenu} className="flex-1 py-2.5 bg-red-600/90 rounded-xl text-sm font-bold flex items-center justify-center gap-1 text-white"><RotateCcw size={16} /> 返回</button>
                             </div>
                         </div>
