@@ -28,7 +28,7 @@ const ROSTER = {
           melis: { id:'melis', faction:'TimeAdmin', name:'梅樂絲·布雷茲', title:'元素 / 範圍灼燒', color:'#FF6B35', mass:1.0, desc:'【被動】召喚火靈，附加燃燒。【主動】致死免疫，擴散火環引爆燃燒。【成長】提升燃燒秒傷。',
             initLogic: b => { b.burnDamage=1.5; b.scalingValue=`燃燒秒傷: ${b.burnDamage.toFixed(1)}`; b.spiritTimer=0; b.hasRevived=false; },
             update: (b, eng) => { if((b.spiritTimer+=DT)>=6){ b.spiritTimer=0; eng.spawnProjectile({type:'spirit',x:b.x,y:b.y,vx:(random()-.5)*150,vy:(random()-.5)*150,radius:12,color:'#FF4500',ownerId:b.uniqueId,damage:0,bounces:1,lifespan:4,isTracking:true,maxSpeed:180,onHit:(p,t)=>{ eng.applyStatus(t.uniqueId,'burn',{duration:3,dps:b.burnDamage,sourceId:b.uniqueId}); b.burnDamage+=b.noGrowth?0:0.4; b.scalingValue=`燃燒秒傷: ${b.burnDamage.toFixed(1)}`; }}); } },
-            onCollide: (b, o, rel, eng) => { eng.applyStatus(o.uniqueId,'burn',{duration:3,dps:b.burnDamage,sourceId:b.uniqueId}); b.burnDamage+=b.noGrowth?0:0.4; b.scalingValue=`燃燒秒傷: ${b.burnDamage.toFixed(1)}`; }
+            onCollide: (b, o, rel, eng) => { eng.sound('collision', { intensity: 1.15 }); eng.applyStatus(o.uniqueId,'burn',{duration:3,dps:b.burnDamage,sourceId:b.uniqueId}); b.burnDamage+=b.noGrowth?0:0.4; b.scalingValue=`燃燒秒傷: ${b.burnDamage.toFixed(1)}`; }
           },
           eli: { id:'eli', faction:'TimeAdmin', name:'伊萊·萊特', title:'機動 / 劍環聯動', color:'#E0FAFF', mass:0.9, desc:'【被動】真理劍環繞洞穿敵人。【主動】碰撞發螺旋環刃。【成長】命中增加環刃數量與傷害。\n【聯動】三菱鏡。',
             initLogic: b => { b.ringDmg=4; b.ringCountRaw=b.ringCount=1; b.ringHits=b.rapierAngle=0; b.rapierCooldowns={}; b.scalingValue=`數量: 1 | 傷害: 4.00`; b.speedMult=1.2; },
@@ -285,8 +285,8 @@ const ROSTER = {
             onWallBounce: (b, eng, ox, oy) => { if(ox!==undefined&&b.wallPortalCooldown<=0){ b.wallPortalCooldown=0.5; if(!b.isUndead)b.teleportCount++; const p1=`${b.uniqueId}_p_${Date.now()}_1`, p2=`${b.uniqueId}_p_${Date.now()}_2`; eng.spawnObstacle({type:'portal',portalId:p1,targetId:p2,x:ox,y:oy,radius:25,color:'#D8B4FE',lifespan:9999,ownerId:b.uniqueId}); eng.spawnObstacle({type:'portal',portalId:p2,targetId:p1,x:b.x,y:b.y,radius:25,color:'#D8B4FE',lifespan:9999,ownerId:b.uniqueId}); } },
             onTakeDamage: (b, a, s, eng, dt) => { if(b.isUndead){b.negativeHpDebt+=a;return 0;} if(a>0&&dt!=='portal'&&b.blinkCooldown<=0){ b.blinkCooldown=1; if(!b.isUndead)b.teleportCount++; const ox=b.x, oy=b.y, nx=b.radius+random()*(eng.arenaSize-b.radius*2), ny=b.radius+random()*(eng.arenaSize-b.radius*2); b.x=nx; b.y=ny; const p1=`${b.uniqueId}_p_${Date.now()}_1`, p2=`${b.uniqueId}_p_${Date.now()}_2`; eng.spawnObstacle({type:'portal',portalId:p1,targetId:p2,x:ox,y:oy,radius:25,color:'#D8B4FE',lifespan:9999,ownerId:b.uniqueId}); eng.spawnObstacle({type:'portal',portalId:p2,targetId:p1,x:nx,y:ny,radius:25,color:'#D8B4FE',lifespan:9999,ownerId:b.uniqueId}); sTxt(eng,ox,oy-30,'🌀 躍遷','#D8B4FE'); } if(b.hp-a<=0&&b.teleportCount>0){ b.isUndead=true; b.deathCountdown=b.teleportCount; b.negativeHpDebt=a-b.hp; sTxt(eng,b.x,b.y-40,'⏳ 命路遠延','#A855F7',0,2); return b.hp-0.1; } return a; }
           },
-          aclas: { id:'aclas', faction:'AnchorOfDestiny', name:'艾克拉斯·天輝', title:'誓約 / 『誓』之錨', color:'#000000', mass:1.0, desc:'【被動】每秒生出紅綠藍色光(波包形態)。拾取改變自身顏色，上限各8層。\n【滿層質變】當單一色光達8層時，該屬性加成翻倍！\n【紅】動機：傷害，每層+4\n【綠】激發：擊退，每層+200\n【藍】能力：範圍，每層+20度\n【主動】每12秒釋放激光攻擊。\n【增幅】發射前根據總色光數乘4恢復血量。',
-            initLogic: b => { b.r=0; b.g=0; b.b=0; b.lightTimer=0; b.attackTimer=0; b.updateColor=()=>{ const toH=v=>floor(v*255/8).toString(16).padStart(2,'0'); b.color=`#${toH(b.r)}${toH(b.g)}${toH(b.b)}`; b.scalingValue=`R:${b.r} G:${b.g} B:${b.b} | 倒數: ${(12-b.attackTimer).toFixed(1)}s`; }; b.updateColor(); },
+          aclas: { id:'aclas', faction:'AnchorOfDestiny', name:'艾克拉斯·天輝', title:'誓約 / 『誓』之錨', color:'#000000', mass:1.0, desc:'【被動】每秒生出紅綠藍色光(波包形態)。拾取改變自身顏色，上限各8層。\n【滿層質變】當單一色光達8層時，該屬性加成翻倍！\n【紅】動機：傷害，每層+4\n【綠】激發：擊退，每層+200\n【藍】能力：範圍，每層+20度\n【主動】每8秒釋放激光攻擊。\n【增幅】發射前根據總色光數乘2恢復血量。',
+            initLogic: b => { b.r=0; b.g=0; b.b=0; b.lightTimer=0; b.attackTimer=0; b.updateColor=()=>{ const toH=v=>floor(v*255/8).toString(16).padStart(2,'0'); b.color=`#${toH(b.r)}${toH(b.g)}${toH(b.b)}`; b.scalingValue=`R:${b.r} G:${b.g} B:${b.b} | 倒數: ${(8-b.attackTimer).toFixed(1)}s`; }; b.updateColor(); },
             update: (b, eng) => {
               if((b.lightTimer+=DT)>=1){ b.lightTimer=0; const t=['R','G','B'][floor(random()*3)]; eng.spawnObstacle({type:'rgb_light', cType:t, x:50+random()*(eng.arenaSize-100), y:50+random()*(eng.arenaSize-100), radius:32, color:t==='R'?'#EF4444':(t==='G'?'#22C55E':'#3B82F6'), ownerId:b.uniqueId, lifespan:8}); }
               eng.obstacles.forEach(o=>{ if(o.type==='rgb_light'&&o.ownerId===b.uniqueId&&o.lifespan>0){
@@ -302,12 +302,112 @@ const ROSTER = {
                   sTxt(eng,b.x,b.y-30,'🌀 躍遷','#FFF');
                 }
               }});
-              if((b.attackTimer+=DT)>=12){ b.attackTimer=0;
+              if((b.attackTimer+=DT)>=8){ b.attackTimer=0;
                   const totalLights = b.r + b.g + b.b;
-                  if(totalLights > 0) { eng.applyHeal(b, totalLights * 4); sTxt(eng, b.x, b.y-20, `💚 誓約恢復 (+${totalLights*4})`, '#10B981'); }
-                  const dmg=(1+b.r*4)*(b.r===8?2:1), kb=(b.g*200)*(b.g===8?2:1), sp=((b.b*20)*PI/180)*(b.b===8?2:1), t=eng.getNearestEnemy(b), a=t?atan2(t.y-b.y,t.x-b.x):atan2(b.vy,b.vx); const ry=b.b===0?1:(3+b.b); for(let i=0;i<ry;i++){ const ca=ry===1?a:a-sp/2+(sp/(ry-1))*i; eng.spawnParticle({type:'laser', x:b.x, y:b.y, tx:b.x+cos(ca)*eng.arenaSize*2, ty:b.y+sin(ca)*eng.arenaSize*2, color:b.color==='#000000'?'#FFF':b.color, maxLifespan:0.5}); } eng.balls.forEach(tg=>{ if(tg.hp>0&&eng.isEnemy(tg.uniqueId,b.uniqueId)&&!tg.isBlank){ const dx=tg.x-b.x, dy=tg.y-b.y, d=hypot(dx,dy); let ad=abs(atan2(dy,dx)-a); while(ad>PI)ad-=PI*2; ad=abs(ad); let ht=false; if(b.b===0){ if(abs(sin(a)*dx-cos(a)*dy)<tg.radius+15 && dx*cos(a)+dy*sin(a)>0) ht=true; }else{ if(ad<=sp/2) ht=true; } if(ht){ eng.applyDamage(tg,dmg,b.uniqueId,'magic'); if(kb>0){ eng.applyStatus(tg.uniqueId,'knockback',{duration:1.5,sourceId:b.uniqueId}); const n=normalize(dx,dy); tg.vx+=n.x*kb; tg.vy+=n.y*kb; } } } }); sTxt(eng,b.x,b.y-40,b.r===8||b.g===8||b.b===8?'✨ 極限誓約·天輝！':'🌈 誓約·天輝！',b.color==='#000000'?'#FFF':b.color); b.r=b.g=b.b=0; b.updateColor(); }else b.scalingValue=`R:${b.r} G:${b.g} B:${b.b} | 倒數: ${(12-b.attackTimer).toFixed(1)}s`;
+                  if(totalLights > 0) { eng.applyHeal(b, totalLights * 2); sTxt(eng, b.x, b.y-20, `💚 誓約恢復 (+${totalLights*2})`, '#10B981'); }
+                  const dmg=(1+b.r*4)*(b.r===8?2:1), kb=(b.g*200)*(b.g===8?2:1), sp=((b.b*20)*PI/180)*(b.b===8?2:1), t=eng.getNearestEnemy(b), a=t?atan2(t.y-b.y,t.x-b.x):atan2(b.vy,b.vx); const ry=b.b===0?1:(3+b.b); eng.sound('laserBurst', { intensity: 1 + (b.r + b.g + b.b) / 12 }); for(let i=0;i<ry;i++){ const ca=ry===1?a:a-sp/2+(sp/(ry-1))*i; eng.spawnParticle({type:'laser', x:b.x, y:b.y, tx:b.x+cos(ca)*eng.arenaSize*2, ty:b.y+sin(ca)*eng.arenaSize*2, color:b.color==='#000000'?'#FFF':b.color, maxLifespan:0.5}); } eng.balls.forEach(tg=>{ if(tg.hp>0&&eng.isEnemy(tg.uniqueId,b.uniqueId)&&!tg.isBlank){ const dx=tg.x-b.x, dy=tg.y-b.y, d=hypot(dx,dy); let ad=abs(atan2(dy,dx)-a); while(ad>PI)ad-=PI*2; ad=abs(ad); let ht=false; if(b.b===0){ if(abs(sin(a)*dx-cos(a)*dy)<tg.radius+15 && dx*cos(a)+dy*sin(a)>0) ht=true; }else{ if(ad<=sp/2) ht=true; } if(ht){ eng.applyDamage(tg,dmg,b.uniqueId,'magic'); if(kb>0){ eng.applyStatus(tg.uniqueId,'knockback',{duration:1.5,sourceId:b.uniqueId}); const n=normalize(dx,dy); tg.vx+=n.x*kb; tg.vy+=n.y*kb; } } } }); sTxt(eng,b.x,b.y-40,b.r===8||b.g===8||b.b===8?'✨ 極限誓約·天輝！':'🌈 誓約·天輝！',b.color==='#000000'?'#FFF':b.color); b.r=b.g=b.b=0; b.updateColor(); }
+              else b.scalingValue=`R:${b.r} G:${b.g} B:${b.b} | 倒數: ${(8-b.attackTimer).toFixed(1)}s`;
+            }
+          },
+          si: {
+            id: 'si', faction: 'AnchorOfDestiny', name: '糸', title: '絲線 / 『繫』之錨', color: '#E2E8F0', mass: 1.0,
+            desc: '【性相】型之性相\n【被動】碰撞敵人時為其捆上絲線(可反覆疊加)。自身受傷時，將該次傷害的 8% 乘上絲線層數，傳遞給所有受捆綁的敵人，並免除同等比例的傷害。\n【主動】萬維交織：全場絲線總數量達6層時強制收束，每層對目標造成5點傷害，並將所有受捆綁的敵人強制拉向戰場中心，隨後清空絲線。',
+            initLogic: (ball) => { 
+                ball.boundOrder = []; // 用於記錄 舊敵人 -> 新敵人 的順序
+                ball.threadPulse = 0;
+                ball.scalingValue = `絲線總數: 0/6`; 
+            },
+            onCollide: (ball, other, relSpeed, engine) => {
+                if (engine.isEnemy(ball.uniqueId, other.uniqueId) && !other.isBlank) {
+                    if (!other.threadStacks) other.threadStacks = {};
+                    other.threadStacks[ball.uniqueId] = (other.threadStacks[ball.uniqueId] || 0) + 1;
+                    other.lastThreadedBy = ball.uniqueId;
+                    other.threadFlash = 0.35;
+                    
+                    // 維護綑綁順序：重複綑綁會將該敵人移到連線的最末端 (最新)
+                    if (!ball.boundOrder) ball.boundOrder = [];
+                    const idx = ball.boundOrder.indexOf(other.uniqueId);
+                    if (idx > -1) ball.boundOrder.splice(idx, 1);
+                    ball.boundOrder.push(other.uniqueId);
+                    ball.threadPulse = 0.35;
+
+                    engine.spawnParticle({ type: 'text', x: other.x, y: other.y - 30, text: '🧵 繫綁', color: '#E2E8F0', maxLifespan: 0.8 });
+                }
+            },
+            onTakeDamage: (ball, amount, sourceId, engine, damageType) => {
+                if (amount > 0 && ball.boundOrder && ball.boundOrder.length > 0) {
+                    let reductionRate = 0;
+                    ball.boundOrder.forEach(targetId => {
+                        const b = engine.balls.find(x => x.uniqueId === targetId);
+                        if (b && b.hp > 0 && b.threadStacks && b.threadStacks[ball.uniqueId] > 0) {
+                            const stackRate = 0.08 * b.threadStacks[ball.uniqueId];
+                            reductionRate += stackRate;
+                            const transferDmg = amount * stackRate;
+                            if (transferDmg > 0) {
+                                engine.applyDamage(b, transferDmg, ball.uniqueId, 'magic');
+                                // 傳導傷害時給予微小的震動
+                                b.vx += (Math.random() - 0.5) * 150;
+                                b.vy += (Math.random() - 0.5) * 150;
+                            }
+                        }
+                    });
+                    return amount * (1 - min(0.9, reductionRate));
+                }
+                return amount;
+            },
+            update: (ball, engine) => {
+                let totalThreads = 0;
+                if (!ball.boundOrder) ball.boundOrder = [];
+                ball.threadPulse = max(0, (ball.threadPulse || 0) - DT);
+                
+                // 清理已經死亡或被淨化的目標，並統計總層數
+                ball.boundOrder = ball.boundOrder.filter(targetId => {
+                    const b = engine.balls.find(x => x.uniqueId === targetId);
+                    if (b && b.hp > 0 && b.threadStacks && b.threadStacks[ball.uniqueId] > 0) {
+                        totalThreads += b.threadStacks[ball.uniqueId];
+                        return true;
+                    }
+                    return false;
+                });
+
+                // 萬維交織：收束絲線
+                if (totalThreads >= 6) {
+                    engine.spawnParticle({ type: 'text', x: ball.x, y: ball.y - 40, text: '🕸️ 萬維交織！', color: '#E2E8F0', maxLifespan: 1.5 });
+                    
+                    const cx = engine.arenaSize / 2;
+                    const cy = engine.arenaSize / 2;
+
+                    ball.boundOrder.forEach(targetId => {
+                        const b = engine.balls.find(x => x.uniqueId === targetId);
+                        if (b && b.hp > 0 && b.threadStacks && b.threadStacks[ball.uniqueId] > 0) {
+                            const stacks = b.threadStacks[ball.uniqueId];
+                            
+                            // 1. 造成傷害
+                            engine.applyDamage(b, 5 * stacks, ball.uniqueId, 'magic');
+                            engine.spawnParticle({ type: 'text', x: b.x, y: b.y - 30, text: `💥 收束 (${5 * stacks})`, color: '#94A3B8' });
+                            
+                            // 2. 往戰場中心收束的動能
+                            const dist = Math.hypot(cx - b.x, cy - b.y);
+                            if (dist > 0) {
+                                const pullForce = 800 + (stacks * 150); // 層數越高，拉力越強
+                                b.vx += ((cx - b.x) / dist) * pullForce;
+                                b.vy += ((cy - b.y) / dist) * pullForce;
+                                engine.applyStatus(b.uniqueId, 'thread_converge', { duration: 0.6, centerX: cx, centerY: cy, strength: 280 + stacks * 40 });
+                            }
+                            
+                            // 3. 收束後清空該敵人的絲線
+                            b.threadStacks[ball.uniqueId] = 0; 
+                            b.threadFlash = 0.8;
+                        }
+                    });
+                    
+                    ball.boundOrder = [];
+                    ball.threadPulse = 1.0;
+                    totalThreads = 0;
+                }
+                
+                ball.scalingValue = `絲線總數: ${totalThreads}/6`;
             }
           },
           dummy: { id:'dummy', faction:'Other', name:'巨大木樁', title:'測試用', color:'#8B4513', mass:15, radiusMult:3, desc:'無情靶子。', initLogic: b => { b.scalingValue=`木樁模式`; b.speedMult=0; }, modifyDamageOut: ()=>0 }
         };
-
