@@ -31,6 +31,13 @@ const CharacterOptions = () => (
             );
         };
 
+        const getTeamSlotCount = (mode, team) => {
+            if (mode === '3v3') return 3;
+            if (mode === 'regen') return 4;
+            if (mode === '1v4') return team === 'p1' ? 4 : 1;
+            return 4;
+        };
+
 
         function App() {
           const canvasRef = useRef(null), engineRef = useRef(null), isPausedRef = useRef(false), speedRef = useRef(1), soundRef = useRef(createSoundManager());
@@ -345,7 +352,7 @@ const CharacterOptions = () => (
 
 
               if(cT-lU>100){
-                const gt = tm => eng.balls.filter(b=>b.team===tm&&b.isMain).map(b=>{ let dHp=max(0,b.hp),isSp=false,mHp=max(0,b.hp),pHp=0; if(b.isUndead)dHp=-floor(b.negativeHpDebt); if(b.id==='quzhe'||b.copied==='quzhe'){const p=eng.balls.find(x=>x.uniqueId===b.phantomId);pHp=p?max(0,p.hp):0;if(mHp>0&&pHp>0){isSp=true;dHp=mHp+pHp;}else if(mHp<=0&&pHp>0)dHp=pHp;} return {id:b.uniqueId,name:b.name,hp:dHp,maxHp:b.baseMaxHp||b.maxHp,erodedMaxHp:b.erodedMaxHp||0,scale:b.scalingValue,tid:b.id,totalDmg:floor(b.damageDealt||0),dps:eng.time>0?((b.damageDealt||0)/eng.time).toFixed(1):"0.0",isSplit:isSp,mainHp:mHp,phantomHp:pHp}; });
+                const gt = tm => eng.balls.filter(b=>b.team===tm&&b.isMain).map(b=>{ let dHp=max(0,b.hp),isSp=false,mHp=max(0,b.hp),pHp=0,displayBall=b; if((b.id==='ecmo'||b.copied==='ecmo')){ const ecmoGroup=eng.balls.filter(x=>x.team===tm&&x.hp>0&&(x.id==='ecmo'||x.copied==='ecmo')); if(ecmoGroup.length>0){ displayBall=ecmoGroup.reduce((best,current)=>current.hp>best.hp?current:best,ecmoGroup[0]); dHp=max(0,displayBall.hp); mHp=max(0,displayBall.hp); } } if(displayBall.isUndead)dHp=-floor(displayBall.negativeHpDebt); if(b.id==='quzhe'||b.copied==='quzhe'){const p=eng.balls.find(x=>x.uniqueId===b.phantomId);pHp=p?max(0,p.hp):0;if(mHp>0&&pHp>0){isSp=true;dHp=mHp+pHp;}else if(mHp<=0&&pHp>0)dHp=pHp;} return {id:b.uniqueId,name:b.name,hp:dHp,maxHp:displayBall.baseMaxHp||displayBall.maxHp,erodedMaxHp:displayBall.erodedMaxHp||0,scale:displayBall.scalingValue,tid:b.id,totalDmg:floor(displayBall.damageDealt||0),dps:eng.time>0?((displayBall.damageDealt||0)/eng.time).toFixed(1):"0.0",isSplit:isSp,mainHp:mHp,phantomHp:pHp}; });
                 setUiStats({p1:gt('p1'),p2:gt('p2'),p3:gt('p3'),p4:gt('p4'),p5:gt('p5')}); lU=cT;
               }
               if(res){setGameState('over');setWinner(res);}else aId=requestAnimationFrame(render);
@@ -370,7 +377,7 @@ const CharacterOptions = () => (
 
           const renderPlayerCard = (s, sm=null) => {
              const isD=sm==='dummy', isE=sm==='endless', pid=s==='p1'?p1Ids[0]:(isD?'dummy':isE?'endless_minion':p2Ids[0]), char=ROSTER[pid]||ROSTER['dummy'], stat=uiStats[s]?.[0];
-             const t = {p1:{b:'border-blue-500',bg:'bg-blue-950/30',txt:'text-blue-400',tit:'text-indigo-300',lb:'Player 1'},p2:{b:'border-red-500',bg:'bg-red-950/30',txt:'text-red-400',tit:'text-red-300',lb:'Player 2'},dummy:{b:'border-amber-500',bg:'bg-amber-950/30',txt:'text-amber-400',tit:'text-amber-300',lb:'Target'},endless:{b:'border-teal-500',bg:'bg-teal-950/30',txt:'text-teal-400',tit:'text-teal-300',lb:'Endless Swarm'}}[sm||s];
+             const t = {p1:{b:'border-blue-500',bg:'bg-blue-950/30',txt:'text-blue-400',tit:'text-indigo-300',lb:char.name},p2:{b:'border-red-500',bg:'bg-red-950/30',txt:'text-red-400',tit:'text-red-300',lb:char.name},dummy:{b:'border-amber-500',bg:'bg-amber-950/30',txt:'text-amber-400',tit:'text-amber-300',lb:'Target'},endless:{b:'border-teal-500',bg:'bg-teal-950/30',txt:'text-teal-400',tit:'text-teal-300',lb:'Endless Swarm'}}[sm||s];
              return (
                  <div className={`p-3 rounded-xl border-2 ${t.b} ${t.bg} flex flex-col gap-1.5 w-full`}>
                      <div className="flex justify-between items-center mb-1"><span className={`text-sm font-bold ${t.txt}`}>{t.lb}</span>{!(isD||isE)&&(<button onClick={()=>toggleLock(s,0)} className={`p-1 rounded ${s==='p1'?(p1Locks[0]?'bg-blue-600/50 text-white':'text-gray-500'):(p2Locks[0]?'bg-red-600/50 text-white':'text-gray-500')}`}>{s==='p1'?(p1Locks[0]?'🔒':'🔓'):(p2Locks[0]?'🔒':'🔓')}</button>)}{(isD||isE)&&(<div className="w-3 h-3 rounded-full" style={{backgroundColor:char.color,boxShadow:`0 0 8px ${char.color}`}}></div>)}</div>
@@ -383,12 +390,11 @@ const CharacterOptions = () => (
 
 
           const renderTeamCard = s => {
-             const isP=s==='p1', ids=(isP?p1Ids:p2Ids).slice(0, isP?(gameMode==='1v4'?4:4):(gameMode==='1v4'?1:4));
+             const isP=s==='p1', slotCount=getTeamSlotCount(gameMode, s), ids=(isP?p1Ids:p2Ids).slice(0, slotCount);
              return (
                <div className={`p-3 rounded-xl border-2 ${isP?'border-blue-500 bg-blue-950/30':'border-red-500 bg-red-950/30'} flex flex-col gap-2 w-full`}>
-                 <div className="flex justify-between items-center mb-1"><span className={`text-sm font-bold ${isP?'text-blue-400':'text-red-400'}`}>{gameMode==='1v4'?(isP?'討伐小隊 (HP:250)':'首領 BOSS (HP:5000)'):`Team ${isP?'1':'2'}`}</span><Users size={16} className={isP?'text-blue-400':'text-red-400'} /></div>
+                 <div className="flex justify-between items-center mb-1"><span className={`text-sm font-bold ${isP?'text-blue-400':'text-red-400'}`}>{gameMode==='1v4'?(isP?'討伐小隊 (HP:250)':'首領 BOSS (HP:5000)'):(gameMode==='3v3'?(isP?'Team 1 (3人)':'Team 2 (3人)'):(gameMode==='regen'?(isP?'Team 1 (4人)':'Team 2 (4人)'):`Team ${isP?'1':'2'}`))}</span><Users size={16} className={isP?'text-blue-400':'text-red-400'} /></div>
                  {ids.map((cid, i) => { const stat=uiStats[s]?.[i];
-                   if (!stat && gameState !== 'menu') return null;
                    const char=ROSTER[cid];
                    const isLocked = isP?p1Locks[i]:p2Locks[i];
                    return (

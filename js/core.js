@@ -19,12 +19,24 @@ const createSoundManager = () => {
   let ctx = null;
   let enabled = true;
   const cooldowns = new Map();
+  let masterGain = null;
+  let compressor = null;
 
   const ensureContext = () => {
     if (ctx) return ctx;
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) return null;
     ctx = new AudioCtx();
+    masterGain = ctx.createGain();
+    masterGain.gain.value = 0.9;
+    compressor = ctx.createDynamicsCompressor();
+    compressor.threshold.value = -18;
+    compressor.knee.value = 18;
+    compressor.ratio.value = 10;
+    compressor.attack.value = 0.003;
+    compressor.release.value = 0.18;
+    masterGain.connect(compressor);
+    compressor.connect(ctx.destination);
     return ctx;
   };
 
@@ -58,9 +70,44 @@ const createSoundManager = () => {
     gain.gain.exponentialRampToValueAtTime(volume, t0 + attack);
     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + Math.max(attack + 0.01, duration + release));
     osc.connect(gain);
-    gain.connect(audioCtx.destination);
+    gain.connect(masterGain || audioCtx.destination);
     osc.start(t0);
     osc.stop(t0 + duration + release + 0.02);
+  };
+
+  const noise = (audioCtx, {
+    duration = 0.05,
+    volume = 0.02,
+    attack = 0.001,
+    release = 0.03,
+    highpass = 600,
+    lowpass = 4800,
+  }) => {
+    const frameCount = Math.max(1, floor(audioCtx.sampleRate * duration));
+    const buffer = audioCtx.createBuffer(1, frameCount, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < frameCount; i++) {
+      data[i] = (random() * 2 - 1) * (1 - i / frameCount);
+    }
+    const source = audioCtx.createBufferSource();
+    const hp = audioCtx.createBiquadFilter();
+    const lp = audioCtx.createBiquadFilter();
+    const gain = audioCtx.createGain();
+    const t0 = audioCtx.currentTime;
+    source.buffer = buffer;
+    hp.type = "highpass";
+    hp.frequency.value = highpass;
+    lp.type = "lowpass";
+    lp.frequency.value = lowpass;
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(volume, t0 + attack);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration + release);
+    source.connect(hp);
+    hp.connect(lp);
+    lp.connect(gain);
+    gain.connect(masterGain || audioCtx.destination);
+    source.start(t0);
+    source.stop(t0 + duration + release + 0.02);
   };
 
   return {
@@ -82,21 +129,28 @@ const createSoundManager = () => {
 
       if (name === "collision") {
         if (throttled("collision", 45)) return;
-        tone(audioCtx, { type: "triangle", frequency: 180 * intensity, frequencyEnd: 90, duration: 0.08, volume: 0.028 * intensity, release: 0.05 });
-        tone(audioCtx, { type: "square", frequency: 120, frequencyEnd: 70, duration: 0.05, volume: 0.014 * intensity, release: 0.04, detune: 6 });
+        noise(audioCtx, { duration: 0.03, volume: 0.02 * intensity, highpass: 900, lowpass: 4200 });
+        tone(audioCtx, { type: "triangle", frequency: 220 * intensity, frequencyEnd: 92, duration: 0.1, volume: 0.048 * intensity, release: 0.06 });
+        tone(audioCtx, { type: "square", frequency: 132, frequencyEnd: 72, duration: 0.07, volume: 0.022 * intensity, release: 0.05, detune: 7 });
       } else if (name === "projectileHit") {
         if (throttled("projectileHit", 40)) return;
-        tone(audioCtx, { type: "square", frequency: 420, frequencyEnd: 220, duration: 0.05, volume: 0.02 * intensity, release: 0.04 });
+        noise(audioCtx, { duration: 0.022, volume: 0.014 * intensity, highpass: 1600, lowpass: 7200 });
+        tone(audioCtx, { type: "square", frequency: 520, frequencyEnd: 210, duration: 0.06, volume: 0.028 * intensity, release: 0.04 });
+        tone(audioCtx, { type: "triangle", frequency: 860, frequencyEnd: 320, duration: 0.035, volume: 0.015 * intensity, release: 0.03 });
       } else if (name === "wallHit") {
         if (throttled("wallHit", 60)) return;
-        tone(audioCtx, { type: "sawtooth", frequency: 150, frequencyEnd: 80, duration: 0.09, volume: 0.025 * intensity, release: 0.06 });
+        noise(audioCtx, { duration: 0.035, volume: 0.017 * intensity, highpass: 700, lowpass: 3800 });
+        tone(audioCtx, { type: "sawtooth", frequency: 170, frequencyEnd: 74, duration: 0.11, volume: 0.038 * intensity, release: 0.07 });
+        tone(audioCtx, { type: "triangle", frequency: 90, frequencyEnd: 55, duration: 0.09, volume: 0.02 * intensity, release: 0.07 });
       } else if (name === "rebirth") {
-        tone(audioCtx, { type: "sawtooth", frequency: 180, frequencyEnd: 540, duration: 0.28, volume: 0.045, release: 0.14 });
-        tone(audioCtx, { type: "triangle", frequency: 260, frequencyEnd: 780, duration: 0.22, volume: 0.035, attack: 0.01, release: 0.16, detune: 12 });
+        noise(audioCtx, { duration: 0.06, volume: 0.018, highpass: 900, lowpass: 6000 });
+        tone(audioCtx, { type: "sawtooth", frequency: 180, frequencyEnd: 540, duration: 0.28, volume: 0.055, release: 0.16 });
+        tone(audioCtx, { type: "triangle", frequency: 260, frequencyEnd: 780, duration: 0.22, volume: 0.042, attack: 0.01, release: 0.18, detune: 12 });
       } else if (name === "laserBurst") {
         if (throttled("laserBurst", 120)) return;
-        tone(audioCtx, { type: "sawtooth", frequency: 920, frequencyEnd: 260, duration: 0.16, volume: 0.026, release: 0.08 });
-        tone(audioCtx, { type: "triangle", frequency: 460, frequencyEnd: 180, duration: 0.14, volume: 0.018, release: 0.08, detune: -8 });
+        noise(audioCtx, { duration: 0.025, volume: 0.012, highpass: 2400, lowpass: 9200 });
+        tone(audioCtx, { type: "sawtooth", frequency: 980, frequencyEnd: 250, duration: 0.18, volume: 0.034, release: 0.08 });
+        tone(audioCtx, { type: "triangle", frequency: 480, frequencyEnd: 170, duration: 0.15, volume: 0.024, release: 0.08, detune: -8 });
       } else if (name === "fireCast") {
         if (throttled("fireCast", 80)) return;
         tone(audioCtx, { type: "sawtooth", frequency: 280, frequencyEnd: 120, duration: 0.14, volume: 0.026, release: 0.07 });
