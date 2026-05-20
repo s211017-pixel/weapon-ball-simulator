@@ -308,5 +308,101 @@ const ROSTER = {
                   const dmg=(1+b.r*4)*(b.r===8?2:1), kb=(b.g*200)*(b.g===8?2:1), sp=((b.b*20)*PI/180)*(b.b===8?2:1), t=eng.getNearestEnemy(b), a=t?atan2(t.y-b.y,t.x-b.x):atan2(b.vy,b.vx); const ry=b.b===0?1:(3+b.b); eng.sound('laserBurst', { intensity: 1 + (b.r + b.g + b.b) / 12 }); for(let i=0;i<ry;i++){ const ca=ry===1?a:a-sp/2+(sp/(ry-1))*i; eng.spawnParticle({type:'laser', x:b.x, y:b.y, tx:b.x+cos(ca)*eng.arenaSize*2, ty:b.y+sin(ca)*eng.arenaSize*2, color:b.color==='#000000'?'#FFF':b.color, maxLifespan:0.5}); } eng.balls.forEach(tg=>{ if(tg.hp>0&&eng.isEnemy(tg.uniqueId,b.uniqueId)&&!tg.isBlank){ const dx=tg.x-b.x, dy=tg.y-b.y, d=hypot(dx,dy); let ad=abs(atan2(dy,dx)-a); while(ad>PI)ad-=PI*2; ad=abs(ad); let ht=false; if(b.b===0){ if(abs(sin(a)*dx-cos(a)*dy)<tg.radius+15 && dx*cos(a)+dy*sin(a)>0) ht=true; }else{ if(ad<=sp/2) ht=true; } if(ht){ eng.applyDamage(tg,dmg,b.uniqueId,'magic'); if(kb>0){ eng.applyStatus(tg.uniqueId,'knockback',{duration:1.5,sourceId:b.uniqueId}); const n=normalize(dx,dy); tg.vx+=n.x*kb; tg.vy+=n.y*kb; } } } }); sTxt(eng,b.x,b.y-40,b.r===8||b.g===8||b.b===8?'✨ 極限誓約·天輝！':'🌈 誓約·天輝！',b.color==='#000000'?'#FFF':b.color); b.r=b.g=b.b=0; b.updateColor(); }else b.scalingValue=`R:${b.r} G:${b.g} B:${b.b} | 倒數: ${(12-b.attackTimer).toFixed(1)}s`;
             }
           },
+          si: {
+            id: 'si', faction: 'AnchorOfDestiny', name: '糸', title: '絲線 / 『繫』之錨', color: '#E2E8F0', mass: 1.0,
+            desc: '【性相】型之性相\n【被動】碰撞敵人時為其捆上絲線(可反覆疊加)。自身受傷時，將該次傷害的 8% 乘上絲線層數，傳遞給所有受捆綁的敵人。\n【主動】萬維交織：全場絲線總數量達12層時強制收束，每層對目標造成5點傷害，並將所有受捆綁的敵人強制拉向戰場中心，隨後清空絲線。',
+            initLogic: (ball) => { 
+                ball.boundOrder = []; // 用於記錄 舊敵人 -> 新敵人 的順序
+                ball.threadPulse = 0;
+                ball.scalingValue = `絲線總數: 0/12`; 
+            },
+            onCollide: (ball, other, relSpeed, engine) => {
+                if (engine.isEnemy(ball.uniqueId, other.uniqueId) && !other.isBlank) {
+                    if (!other.threadStacks) other.threadStacks = {};
+                    other.threadStacks[ball.uniqueId] = (other.threadStacks[ball.uniqueId] || 0) + 1;
+                    other.lastThreadedBy = ball.uniqueId;
+                    other.threadFlash = 0.35;
+                    
+                    // 維護綑綁順序：重複綑綁會將該敵人移到連線的最末端 (最新)
+                    if (!ball.boundOrder) ball.boundOrder = [];
+                    const idx = ball.boundOrder.indexOf(other.uniqueId);
+                    if (idx > -1) ball.boundOrder.splice(idx, 1);
+                    ball.boundOrder.push(other.uniqueId);
+                    ball.threadPulse = 0.35;
+
+                    engine.spawnParticle({ type: 'text', x: other.x, y: other.y - 30, text: '🧵 繫綁', color: '#E2E8F0', maxLifespan: 0.8 });
+                }
+            },
+            onTakeDamage: (ball, amount, sourceId, engine, damageType) => {
+                if (amount > 0 && ball.boundOrder && ball.boundOrder.length > 0) {
+                    ball.boundOrder.forEach(targetId => {
+                        const b = engine.balls.find(x => x.uniqueId === targetId);
+                        if (b && b.hp > 0 && b.threadStacks && b.threadStacks[ball.uniqueId] > 0) {
+                            const transferDmg = amount * 0.08 * b.threadStacks[ball.uniqueId];
+                            if (transferDmg > 0) {
+                                engine.applyDamage(b, transferDmg, ball.uniqueId, 'magic');
+                                // 傳導傷害時給予微小的震動
+                                b.vx += (Math.random() - 0.5) * 150;
+                                b.vy += (Math.random() - 0.5) * 150;
+                            }
+                        }
+                    });
+                }
+                return amount;
+            },
+            update: (ball, engine) => {
+                let totalThreads = 0;
+                if (!ball.boundOrder) ball.boundOrder = [];
+                ball.threadPulse = max(0, (ball.threadPulse || 0) - DT);
+                
+                // 清理已經死亡或被淨化的目標，並統計總層數
+                ball.boundOrder = ball.boundOrder.filter(targetId => {
+                    const b = engine.balls.find(x => x.uniqueId === targetId);
+                    if (b && b.hp > 0 && b.threadStacks && b.threadStacks[ball.uniqueId] > 0) {
+                        totalThreads += b.threadStacks[ball.uniqueId];
+                        return true;
+                    }
+                    return false;
+                });
+
+                // 萬維交織：收束絲線
+                if (totalThreads >= 12) {
+                    engine.spawnParticle({ type: 'text', x: ball.x, y: ball.y - 40, text: '🕸️ 萬維交織！', color: '#E2E8F0', maxLifespan: 1.5 });
+                    
+                    const cx = engine.arenaSize / 2;
+                    const cy = engine.arenaSize / 2;
+
+                    ball.boundOrder.forEach(targetId => {
+                        const b = engine.balls.find(x => x.uniqueId === targetId);
+                        if (b && b.hp > 0 && b.threadStacks && b.threadStacks[ball.uniqueId] > 0) {
+                            const stacks = b.threadStacks[ball.uniqueId];
+                            
+                            // 1. 造成傷害
+                            engine.applyDamage(b, 5 * stacks, ball.uniqueId, 'magic');
+                            engine.spawnParticle({ type: 'text', x: b.x, y: b.y - 30, text: `💥 收束 (${5 * stacks})`, color: '#94A3B8' });
+                            
+                            // 2. 往戰場中心收束的動能
+                            const dist = Math.hypot(cx - b.x, cy - b.y);
+                            if (dist > 0) {
+                                const pullForce = 800 + (stacks * 150); // 層數越高，拉力越強
+                                b.vx += ((cx - b.x) / dist) * pullForce;
+                                b.vy += ((cy - b.y) / dist) * pullForce;
+                                engine.applyStatus(b.uniqueId, 'thread_converge', { duration: 0.6, centerX: cx, centerY: cy, strength: 280 + stacks * 40 });
+                            }
+                            
+                            // 3. 收束後清空該敵人的絲線
+                            b.threadStacks[ball.uniqueId] = 0; 
+                            b.threadFlash = 0.8;
+                        }
+                    });
+                    
+                    ball.boundOrder = [];
+                    ball.threadPulse = 1.0;
+                    totalThreads = 0;
+                }
+                
+                ball.scalingValue = `絲線總數: ${totalThreads}/12`;
+            }
+          },
           dummy: { id:'dummy', faction:'Other', name:'巨大木樁', title:'測試用', color:'#8B4513', mass:15, radiusMult:3, desc:'無情靶子。', initLogic: b => { b.scalingValue=`木樁模式`; b.speedMult=0; }, modifyDamageOut: ()=>0 }
         };
