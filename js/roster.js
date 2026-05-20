@@ -311,11 +311,11 @@ const ROSTER = {
           },
           si: {
             id: 'si', faction: 'AnchorOfDestiny', name: '糸', title: '絲線 / 『繫』之錨', color: '#E2E8F0', mass: 1.0,
-            desc: '【性相】型之性相\n【被動】碰撞敵人時為其捆上絲線(可反覆疊加)。自身受傷時，將該次傷害的 8% 乘上絲線層數，傳遞給所有受捆綁的敵人，並免除同等比例的傷害。\n【主動】萬維交織：全場絲線總數量達6層時強制收束，每層對目標造成5點傷害，並將所有受捆綁的敵人強制拉向戰場中心，隨後清空絲線。',
+            desc: '【性相】型之性相\n【被動】碰撞敵人時為其捆上絲線(可反覆疊加)。自身受傷時，將該次傷害的 8% 乘上絲線層數，傳遞給所有受捆綁的敵人，並免除同等比例的傷害。\n【主動】萬維交織：全場絲線總數量達12層時強制收束，每層對目標造成5點傷害，並將所有受捆綁的敵人強制拉向戰場中心，隨後清空絲線。',
             initLogic: (ball) => { 
                 ball.boundOrder = []; // 用於記錄 舊敵人 -> 新敵人 的順序
                 ball.threadPulse = 0;
-                ball.scalingValue = `絲線總數: 0/6`; 
+                ball.scalingValue = `絲線總數: 0/12`; 
             },
             onCollide: (ball, other, relSpeed, engine) => {
                 if (engine.isEnemy(ball.uniqueId, other.uniqueId) && !other.isBlank) {
@@ -371,7 +371,7 @@ const ROSTER = {
                 });
 
                 // 萬維交織：收束絲線
-                if (totalThreads >= 6) {
+                if (totalThreads >= 12) {
                     engine.spawnParticle({ type: 'text', x: ball.x, y: ball.y - 40, text: '🕸️ 萬維交織！', color: '#E2E8F0', maxLifespan: 1.5 });
                     
                     const cx = engine.arenaSize / 2;
@@ -406,7 +406,7 @@ const ROSTER = {
                     totalThreads = 0;
                 }
                 
-                ball.scalingValue = `絲線總數: ${totalThreads}/6`;
+                ball.scalingValue = `絲線總數: ${totalThreads}/12`;
             }
           },
           dummy: { id:'dummy', faction:'Other', name:'巨大木樁', title:'測試用', color:'#8B4513', mass:15, radiusMult:3, desc:'無情靶子。', initLogic: b => { b.scalingValue=`木樁模式`; b.speedMult=0; }, modifyDamageOut: ()=>0 }
