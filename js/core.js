@@ -11,7 +11,24 @@ const { useState, useEffect, useRef } = React;
         const DT = 1/60, BASE_SPEED = 320, BALL_RADIUS = 35;
         const distance = (x1, y1, x2, y2) => hypot(x2-x1, y2-y1);
         const normalize = (vx, vy) => { const l = hypot(vx, vy); return l===0 ? {x:0, y:0} : {x:vx/l, y:vy/l}; };
-        const sTxt = (e, x, y, text, color, dy=-30, maxL=1) => e.spawnParticle({type:'text', x, y:y+dy, text, color, maxLifespan:maxL});
+        const sTxt = (e, x, y, text, color, dy=-30, maxL=1) => {
+            e.spawnParticle({type:'text', x, y:y+dy, text, color, maxLifespan:maxL});
+            if(e.sound) {
+                if(text.includes('✨') || text.includes('淨化') || color === '#FCD34D' || color === '#F1D302') e.sound('holyCast');
+                else if(text.includes('💥') || text.includes('紅墨') || text.includes('崩落') || color === '#EF4444') e.sound('explosionCast');
+                else if(text.includes('💨') || text.includes('🌀') || text.includes('躍遷')) e.sound('portalCast');
+                else if(text.includes('🧛') || text.includes('血') || text.includes('虹吸') || color === '#DC143C' || color === '#F43F5E') e.sound('debuffCast');
+                else if(text.includes('⚡') || text.includes('麻痺') || color === '#FBBF24') e.sound('lightningCast');
+                else if(text.includes('🛡️') || text.includes('護盾')) e.sound('buffCast');
+                else if(text.includes('🌿') || text.includes('💚') || text.includes('再生') || color === '#10B981' || color === '#34D399') e.sound('natureCast');
+                else if(text.includes('🔥') || text.includes('燃燒') || color === '#FF6B35') e.sound('fireCast');
+                else if(text.includes('🧊') || text.includes('冰') || text.includes('藍墨') || color === '#38BDF8') e.sound('iceArcane');
+                else if(text.includes('💀') || text.includes('🔒') || text.includes('封印') || text.includes('暗')) e.sound('shadowCast');
+                else if(text.includes('⚔️') || text.includes('打擊')) e.sound('collision');
+                else if(text.includes('📸') || text.includes('📢') || text.includes('📖') || text.includes('🧵')) e.sound('summonCast');
+                else e.sound('buffCast');
+            }
+        };
 const cloneProjs = arr => arr.map(p => { const c={...p}; if(p.hitSet) c.hitSet=new Set(p.hitSet); if(p.hitCooldowns) c.hitCooldowns={...p.hitCooldowns}; if(p.physCooldowns) c.physCooldowns={...p.physCooldowns}; return c; });
 const cloneBalls = arr => arr.map(b => { const c={...b, statuses:b.statuses.map(s=>({...s}))}; if(b.walls) c.walls=b.walls.map(w=>({...w})); if(b.hermesList) c.hermesList=[...b.hermesList]; if(b.hephaestusList) c.hephaestusList=[...b.hephaestusList]; if(b.zeusList) c.zeusList=[...b.zeusList]; if(b.doomHeal) c.doomHeal={...b.doomHeal}; c.snapshot=null; return c; });
 

@@ -349,8 +349,8 @@ const ROSTER = {
                                 const dx = ball.x - b.x;
                                 const dy = ball.y - b.y;
                                 const dist = Math.hypot(dx, dy) || 1;
-                                b.vx += (dx / dist) * 150;
-                                b.vy += (dy / dist) * 150;
+                                b.vx += (dx / dist) * 15;
+                                b.vy += (dy / dist) * 15;
                             }
                         }
                     });
