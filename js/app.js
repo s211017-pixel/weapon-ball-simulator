@@ -187,7 +187,7 @@ const CharacterOptions = () => (
                 for(let i=engine.waves.length-1;i>=0;i--){ const w=engine.waves[i]; if(w.deceleration){w.speed-=w.deceleration*DT;if(w.speed>0)w.currentRadius+=w.speed*DT;else w.lingerTimer+=DT;} else{if(w.currentRadius<w.maxRadius){w.currentRadius+=w.speed*DT;if(w.currentRadius>=w.maxRadius)w.currentRadius=w.maxRadius;}else w.lingerTimer+=DT;} if(w.deflectsProjectiles)engine.projectiles.forEach(p=>{if(engine.isEnemy(p.ownerId,w.ownerId)&&distance(w.x,w.y,p.x,p.y)<=w.currentRadius+p.radius){const n=normalize(p.x-w.x,p.y-w.y);p.vx+=n.x*1200*DT;p.vy+=n.y*1200*DT;}}); engine.balls.forEach(b=>{if(b.hp>0&&!b.isBlank&&!w.hitSet.has(b.uniqueId)&&distance(w.x,w.y,b.x,b.y)<=w.currentRadius+b.radius){if(w.onHit)w.onHit(b);w.hitSet.add(b.uniqueId);}}); if(w.lingerTimer>=(w.lingerDuration||0))engine.waves.splice(i,1); }
                 for(let i=engine.particles.length-1;i>=0;i--){ const p=engine.particles[i]; if(p.type==='floating_number'){p.x+=p.vx*DT;p.y+=p.vy*DT;p.vy+=250*DT;} else if(p.type==='text')p.y-=30*DT; if((p.lifespan-=DT)<=0)engine.particles.splice(i,1); }
                 const aT=new Set(); engine.balls.forEach(b=>{if(((b.isMain && b.team !== 'p1' && b.team !== 'p2') || (b.team === 'p1' || b.team === 'p2') && b.hp > 0 && !b.isBlank && b.id !== 'endless_minion' && b.id !== 'dummy' && b.id !== 'chess_piece') && b.hp>0)aT.add(b.team);});
-                if(gameMode==='test'&&testType==='endless'){if(!aT.has('p1'))return 'p2'; return null;}
+                if(gameMode==='test'){if(!aT.has('p1'))return 'p2'; return null;}
                 if(gameMode==='regen') return null;
                 return aT.size<=1?(aT.size===1?Array.from(aT)[0]:'draw'):null;
               }
