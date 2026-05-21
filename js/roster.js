@@ -160,7 +160,7 @@ const ROSTER = {
                 if(tb.ultimate){if((tb.ultHephaestusTimer=(tb.ultHephaestusTimer||10)-DT)<=0){tb.ultHephaestusTimer=10;fH();} if((tb.ultZeusTimer=(tb.ultZeusTimer||5)-DT)<=0){tb.ultZeusTimer=5;fZ();}}
               };
               pArt(b); eng.balls.forEach(t=>{if(t.hp>0&&t.team===b.team&&t.uniqueId!==b.uniqueId&&!t.isBlank&&t.id!=='fasimir'&&t.copied!=='fasimir'&&t.lastArtProc!==eng.time){t.lastArtProc=eng.time;pArt(t);}});
-            }, modifyDamageOut: (b, d, e, t) => { if(b.ultimate){ if((b.collisionCooldowns[t.uniqueId]||0)>0) return 0; b.collisionCooldowns[t.uniqueId]=0.5; return 15; } return d; }, onCollide: (b, o) => { if(b.ultimate){ const n=normalize(o.x-b.x, o.y-b.y); o.vx+=n.x*2500; o.vy+=n.y*2500; } }, onTakeDamage: (b, a, src, eng, dType) => { if(b.ultimate&&['collision','wall_collision'].includes(dType)){ return 0; } return a; }
+            }, modifyDamageOut: (b, d, e, t) => { if(b.ultimate){ if((b.collisionCooldowns[t.uniqueId]||0)>0) return 0; b.collisionCooldowns[t.uniqueId]=0.5; return 15; } return d; }, onCollide: (b, o) => { }, onTakeDamage: (b, a, src, eng, dType) => { if(b.ultimate&&['collision','wall_collision'].includes(dType)){ return 0; } return a; }
           },
           lisi: { id:'lisi', faction:'TomorrowCompany', name:'李斯', title:'本質 / 明日新聞', color:'#F472B6', mass:1.0, desc:'【被動】閃光燈照相傷害。【主動】大新聞記錄全場，受擊喚出狂熱粉絲。【回溯】5秒後回溯狀態。\n【聯動】ECMO: 大新聞期間受擊依比例回血(可超量)。',
             initLogic: b => { b.newsTimer=b.photoTimer=b.cameraAngle=0; b.newsState=b.needsSnap=true; b.fanCooldowns={}; b.scalingValue=`大新聞！準備中...`; b.newsDamageTaken=0; },

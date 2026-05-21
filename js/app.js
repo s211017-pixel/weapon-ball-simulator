@@ -110,10 +110,13 @@ const CharacterOptions = () => (
 
                  if(gameMode === 'regen' && t.isMain) {
                     engine.teamDeathCounts[t.team]++;
+                    t.erodedMaxHp = 0;
+                    t.maxHp = t.baseMaxHp;
                     t.hp = t.maxHp;
                     t.x = engine.arenaSize/2 + (random()-.5)*200;
                     t.y = t.team === 'p1' ? 100 : engine.arenaSize-100;
                     t.vx = t.vy = 0;
+                    engine.balls.forEach(b => { if ((b.id === 'miller' || b.copied === 'miller') && b.doomHeal) b.doomHeal[t.uniqueId] = 0; });
                     sTxt(engine, t.x, t.y-40, '♻️ 再生！', '#34D399');
                     engine.applyStatus(t.uniqueId, 'shield', {duration: 3});
                     return 0;
@@ -167,7 +170,7 @@ const CharacterOptions = () => (
                 }
 
 
-                engine.balls.forEach(b=>{ if(b.hp<=0||b.isBlank)return; if(b.inQuzheDomain){b.erodedMaxHp+=b.baseMaxHp*(b.currentErosionRate||0.02)*DT;if(b.erodedMaxHp>=b.baseMaxHp){b.erodedMaxHp=b.baseMaxHp;if(b.hp>0){b.hp=0;sTxt(engine,b.x,b.y-30,'💀 侵蝕殆盡!','#059669',0,2);}}}else if(b.erodedMaxHp>0)b.erodedMaxHp=max(0,b.erodedMaxHp-b.baseMaxHp*0.01*DT); b.maxHp=b.baseMaxHp-b.erodedMaxHp; if(b.hp>b.maxHp+100&&b.hp>0)b.hp=b.maxHp+100; });
+                engine.balls.forEach(b=>{ if(b.hp<=0||b.isBlank)return; if(b.inQuzheDomain){b.erodedMaxHp+=b.baseMaxHp*(b.currentErosionRate||0.02)*DT;if(b.erodedMaxHp>=b.baseMaxHp){b.erodedMaxHp=b.baseMaxHp;if(b.hp>0){b.hp=0;sTxt(engine,b.x,b.y-30,'💀 侵蝕殆盡!','#059669',0,2);}}}else if(b.erodedMaxHp>0)b.erodedMaxHp=max(0,b.erodedMaxHp-b.baseMaxHp*0.01*DT); b.maxHp=b.baseMaxHp-b.erodedMaxHp; if(b.hp>0) { const canOverheal = engine.balls.some(x => x.team === b.team && x.hp > 0 && (x.id === 'ecmo' || x.copied === 'ecmo')); b.hp=min(b.hp, b.maxHp + (canOverheal ? 100 : 0)); } });
 
 
                 for(let i=0;i<engine.balls.length;i++){ for(let j=i+1;j<engine.balls.length;j++){ const b1=engine.balls[i], b2=engine.balls[j]; if(b1.hp<=0||b2.hp<=0||b1.isBlank||b2.isBlank||(b1.phantomId===b2.uniqueId||b2.phantomId===b1.uniqueId||b1.mainId===b2.uniqueId||b2.mainId===b1.uniqueId))continue;
