@@ -345,9 +345,12 @@ const ROSTER = {
                             const transferDmg = amount * stackRate;
                             if (transferDmg > 0) {
                                 engine.applyDamage(b, transferDmg, ball.uniqueId, 'magic');
-                                // 傳導傷害時給予微小的震動
-                                b.vx += (Math.random() - 0.5) * 150;
-                                b.vy += (Math.random() - 0.5) * 150;
+                                // 傳導傷害時給予微小的向糸方向的拉力
+                                const dx = ball.x - b.x;
+                                const dy = ball.y - b.y;
+                                const dist = Math.hypot(dx, dy) || 1;
+                                b.vx += (dx / dist) * 150;
+                                b.vy += (dy / dist) * 150;
                             }
                         }
                     });
